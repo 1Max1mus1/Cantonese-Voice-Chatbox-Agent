@@ -89,7 +89,8 @@ export function getAzureKey(): string | undefined {
 }
 
 export function setAzureKey(key?: string): AppConfig {
-  return saveConfig({ azure: { key } });
+  // Include current region to satisfy AzureConfig type requirements
+  return saveConfig({ azure: { key, region: getAzureRegion() } });
 }
 
 export function getAzureRegion(): string {
@@ -115,11 +116,12 @@ export function getTtsSettings(): AccessibilitySettings {
 }
 
 export function setTtsSettings(settings: Partial<AccessibilitySettings>): AppConfig {
+  const current = loadConfig().tts;
   const incoming: Partial<AppConfig> = {
     tts: {
-      ttsVoice: settings.ttsVoice,
-      ttsRate: settings.ttsRate,
-      ttsVolume: settings.ttsVolume,
+      ttsVoice: settings.ttsVoice ?? current.ttsVoice,
+      ttsRate: settings.ttsRate ?? current.ttsRate,
+      ttsVolume: settings.ttsVolume ?? current.ttsVolume,
     },
   };
   return saveConfig(incoming);

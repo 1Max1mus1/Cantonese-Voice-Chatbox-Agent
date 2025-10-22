@@ -41,18 +41,18 @@ function buildSpeechConfig(): sdk.SpeechConfig {
   return cfg;
 }
 
-function mapRate(rate: number): string {
+function mapRate(rate?: number): string {
   // Convert numeric rate to SSML prosody percentage
   if (rate === 0.8) return '-20%';
   if (rate === 1.2) return '+20%';
-  return '0%'; // 1.0
+  return '0%'; // default / 1.0
 }
 
-function mapVolume(vol: number): string {
+function mapVolume(vol?: number): string {
   // Map numeric volume to SSML categories
   if (vol === 0.5) return 'soft';
   if (vol === 1.0) return 'loud';
-  return 'medium'; // 0.75
+  return 'medium'; // default / 0.75
 }
 
 // Removed duplicate preprocessForSpeech (kept the comprehensive version below)
@@ -64,60 +64,7 @@ export type SynthesisOptions = {
   volume?: number; // 0.5 | 0.75 | 1.0
 };
 
-export type SynthesisResult = {
-  audioUrl: string;
-  audioData: Uint8Array;
-};
-
-export async function synthesizeToMp3(opts: SynthesisOptions): Promise<SynthesisResult> {
-  const speechConfig = buildSpeechConfig();
-  if (opts.voiceName) speechConfig.speechSynthesisVoiceName = opts.voiceName;
-
-  const rate = mapRate(opts.rate ?? getTtsSettings().ttsRate);
-  const volume = mapVolume(opts.volume ?? getTtsSettings().ttsVolume);
-
-  const prepared = preprocessForSpeech(opts.text);
-
-  const ssml = `<?xml version="1.0" encoding="UTF-8"?>
-<speak version="1.0" xml:lang="zh-HK">
-  <voice name="${speechConfig.speechSynthesisVoiceName}">
-    <prosody rate="${rate}" volume="${volume}">${escapeXml(prepared)}</prosody>
-  </voice>
-</speak>`;
-
-  // IMPORTANT: Route synthesis to a pull stream to prevent automatic speaker playback.
-  const pullStream = sdk.AudioOutputStream.createPullStream();
-  const audioConfig = sdk.AudioConfig.fromAudioOutputStream(pullStream);
-  const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
-
-  const result = await new Promise<sdk.SpeechSynthesisResult>((resolve, reject) => {
-    synthesizer.speakSsmlAsync(
-      ssml,
-      (res) => {
-        synthesizer.close();
-        resolve(res);
-      },
-      (err) => {
-        synthesizer.close();
-        reject(err);
-      }
-    );
-  });
-
-  if ((result as any).reason !== (sdk as any).ResultReason.SynthesizingAudioCompleted) {
-    throw new Error(`Synthesis failed: ${(result as any).errorDetails ?? (result as any).reason}`);
-  }
-
-  const raw = (result as any).audioData as ArrayBuffer | Uint8Array;
-  const audioData = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
-  if (!audioData?.length) {
-    console.warn('Azure TTS returned empty audioData');
-  }
-  const blob = new Blob([audioData], { type: 'audio/mpeg' });
-  const audioUrl = URL.createObjectURL(blob);
-
-  return { audioUrl, audioData };
-}
+// Removed synthesizeToMp3: use speakToSpeaker for browser playback. Streaming synthesis via AudioOutputStream is not supported in this build target.
 
 export async function speakToSpeaker(opts: SynthesisOptions): Promise<void> {
   const speechConfig = buildSpeechConfig();
