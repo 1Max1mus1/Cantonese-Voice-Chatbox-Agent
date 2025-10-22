@@ -81,7 +81,25 @@ export async function speakToSpeaker(opts: SynthesisOptions): Promise<void> {
   </voice>
 </speak>`;
 
-  const audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+  // 移動端音頻播放需要特殊處理
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  let audioConfig;
+  try {
+    audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+    
+    // 移動端需要確保音頻上下文已啟動
+    if (isMobile && audioConfig && (audioConfig as any).audioContext) {
+      const ctx = (audioConfig as any).audioContext;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+    }
+  } catch (e) {
+    console.warn('Audio config setup failed, falling back to default', e);
+    audioConfig = sdk.AudioConfig.fromDefaultSpeakerOutput();
+  }
+
   const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
 
   await new Promise<void>((resolve, reject) => {
@@ -92,11 +110,14 @@ export async function speakToSpeaker(opts: SynthesisOptions): Promise<void> {
         if (res.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
           resolve();
         } else {
-          reject(new Error(`Synthesis failed: ${res.errorDetails ?? res.reason}`));
+          const error = new Error(`Synthesis failed: ${res.errorDetails ?? res.reason}`);
+          console.error('TTS synthesis failed:', error);
+          reject(error);
         }
       },
       (err) => {
         synthesizer.close();
+        console.error('TTS synthesis error:', err);
         reject(err);
       }
     );

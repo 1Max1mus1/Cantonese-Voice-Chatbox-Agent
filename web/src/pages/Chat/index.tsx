@@ -4,6 +4,7 @@ import MicButton from '../../components/MicButton';
 import { sendChat } from '../../services/deepseekClient';
 import type { ChatMessage } from '../../services/deepseekClient';
 import { speakToSpeaker } from '../../services/azureSpeech';
+import { unlockAudioWithGesture } from '../../services/audio';
 import { buildMessages } from '../../services/prompt';
 
 const SESSION_KEY = 'cvc.session.messages.v1';
@@ -57,6 +58,8 @@ export default function ChatPage() {
         } else {
           lastSpokenTextRef.current = assistantText;
           lastSpokenAtRef.current = now;
+          // 確保音頻已解鎖（移動端必需）
+          await unlockAudioWithGesture();
           // 直接使用 Azure SDK 輸出到預設喇叭，自動播放
           await speakToSpeaker({ text: assistantText });
         }

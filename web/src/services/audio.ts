@@ -30,6 +30,21 @@ export async function unlockAudioWithGesture(): Promise<void> {
       audioEl.preload = 'auto';
     }
 
+    // 同時解鎖 Azure Speech SDK 的音頻上下文（移動端必需）
+    try {
+      const SpeechSDK = (window as any).SpeechSDK;
+      if (SpeechSDK && SpeechSDK.AudioConfig) {
+        // 創建一個靜音的音頻配置來解鎖
+        const audioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
+        // 觸發音頻上下文解鎖
+        if (audioConfig && audioConfig.audioContext) {
+          await audioConfig.audioContext.resume();
+        }
+      }
+    } catch (e) {
+      console.warn('Azure Speech audio unlock failed', e);
+    }
+
     unlocked = true;
   } catch (e) {
     console.warn('Audio unlock failed', e);
